@@ -56,8 +56,12 @@
   :group 'vlc-play)
 
 (defconst vlc-play--command-video-to-images
-  "vlc \"%s\" --sub-track=0 --rate=1 --video-filter=scene --vout=dummy --scene-format=png --scene-ratio=24 --scene-prefix=%s --scene-path=\"%s\" vlc://quit"
-  "Command that convert video to images.")
+  "vlc \"%s\" --sub-track=0 --rate=1 --video-filter=scene -Idummy --vout=dummy --scene-format=png --scene-ratio=24 --scene-prefix=%s --scene-path=\"%s\" vlc://quit"
+  "Command that convert video to image source.")
+
+(defconst vlc-play--command-video-to-audio
+  ""
+  "Command that convert video to audio source")
 
 (defvar vlc-play--buffer nil
   "Buffer that displays video.")
@@ -105,7 +109,7 @@ PATH is the input video file.  SOURCE is the output image directory."
       )
     ))
 
-(vlc-play--video (expand-file-name "./test/1.avi"))
+(vlc-play--video (expand-file-name "./test/3.mp4"))
 
 
 (provide 'vlc-play)
