@@ -55,31 +55,86 @@
   :type 'string
   :group 'vlc-play)
 
+(defcustom vlc-play-first-frame-time 0.2
+  "Time to check if the first frame exists."
+  :type 'float
+  :group 'vlc-play)
+
+(defcustom vlc-play-buffer-time 0.2
+  "Time to update buffer frame."
+  :type 'float
+  :group 'vlc-play)
+
+(defcustom vlc-play-image-extension "png"
+  "Image extension when output from VLC."
+  :type 'string
+  :group 'vlc-play)
+
 (defconst vlc-play--command-video-to-images
-  "vlc \"%s\" --sub-track=0 --rate=1 --video-filter=scene -Idummy --vout=dummy --scene-format=png --scene-ratio=24 --scene-prefix=%s --scene-path=\"%s\" vlc://quit"
+  "vlc \"%s\" %s --scene-path=\"%s\" vlc://quit"
   "Command that convert video to image source.")
 
 (defconst vlc-play--command-video-to-audio
   ""
-  "Command that convert video to audio source")
+  "Command that convert video to audio source.")
 
-(defvar vlc-play--buffer nil
-  "Buffer that displays video.")
 
-(defvar vlc-play--buffer-timer nil
-  "Timer that will update the image buffer.")
+(defvar vlc-play--frame-regexp nil
+  "Frame regular expression for matching length.")
 
+(defvar vlc-play--frame-index 0 "Current frame index/counter.")
+
+(defvar vlc-play--first-frame-timer nil "Timer that find out the first frame.")
+(defvar vlc-play--first-frame nil "Flag to check if the first frame are ready.")
+
+(defvar vlc-play--buffer nil "Buffer that displays video.")
+(defvar vlc-play--buffer-timer nil "Timer that will update the image buffer.")
+
+
+;;; Command
+
+(defun vlc-play--form-command-list (lst)
+  "Form the command by LST."
+  (let ((output ""))
+    (dolist (cmd lst)
+      (setq output (concat output cmd " ")))
+    output))
 
 (defun vlc-play--form-command (path source)
   "From the command by needed parameters.
 PATH is the input video file.  SOURCE is the output image directory."
   (format vlc-play--command-video-to-images
-          path vlc-play-image-prefix source))
+          path
+          (vlc-play--form-command-list
+           (list "--sub-track=0"              ; subtitle track
+                 "--rate=1"                   ; playback speed
+                 "--video-filter=scene"       ; post processing
+                 ;;"-Idummy"                    ; Don't show GUI.
+                 "--vout=dummy"               ; video output
+                 "--scene-format=png"         ; extension
+                 "--scene-ratio=1"            ; FPS thumbnails
+                 ;;"--no-audio"                 ; no audio
+                 (format "--scene-prefix=%s"  ;
+                         vlc-play-image-prefix)))
+          source))
+
+;;; Util
 
 (defun vlc-play--safe-path (path)
   "Check if safe PATH."
   (unless (file-exists-p path) (setq path (expand-file-name path)))
   (if (file-exists-p path) path nil))
+
+(defun vlc-play--clean-video-images ()
+  "Clean up all video images."
+  (delete-directory (expand-file-name vlc-play-images-directory) t))
+
+(defun vlc-play--ensure-video-directory-exists ()
+  "Ensure the video directory exists so we can put our image files."
+  (unless (file-directory-p (expand-file-name vlc-play-images-directory))
+    (make-directory (expand-file-name vlc-play-images-directory) t)))
+
+;;; Buffer
 
 (defun vlc-play--buffer-name (path)
   "Return current vlc play buffer name by PATH."
@@ -89,27 +144,115 @@ PATH is the input video file.  SOURCE is the output image directory."
   "Create a new video buffer with PATH."
   (let* ((name (vlc-play--buffer-name path))
          (buf (if (get-buffer name) (get-buffer name) (generate-new-buffer name))))
-    (with-current-buffer buf
-      (erase-buffer)
-      (insert "[Nothing to play yet...]"))
+    (setq vlc-play--buffer buf)
+    (with-current-buffer buf (buffer-disable-undo))
+    (vlc-play--update-frame-by-string "[Nothing to display yet...]")
+    (pop-to-buffer buf)
     buf))
+
+;;; First frame
+
+(defun vlc-play--set-first-frame-timer ()
+  "Set the first frame timer task."
+  (vlc-play--kill-first-frame-timer)
+  (setq vlc-play--first-frame-timer
+        (run-with-timer vlc-play-first-frame-time nil 'vlc-play--check-first-frame)))
+
+(defun vlc-play--kill-first-frame-timer ()
+  "Kill the first frame timer.
+Information about first frame timer please see variable `vlc-play--first-frame-timer'."
+  (when (timerp vlc-play--first-frame-timer)
+    (cancel-timer vlc-play--first-frame-timer)
+    (setq vlc-play--first-frame-timer nil)))
+
+(defun vlc-play--form-file-extension-regexp ()
+  "Form regular expression for search image file."
+  (format "\\.%s$" vlc-play-image-extension))
+
+(defun vlc-play--check-first-frame ()
+  "Core function to check first frame image is ready."
+  (let ((images (directory-files (expand-file-name vlc-play-images-directory) nil (vlc-play--form-file-extension-regexp)))
+        (first-frame nil))
+    (if (not images)
+        (vlc-play--set-first-frame-timer)
+      (setq first-frame (nth 0 images))
+      (setq first-frame (s-replace vlc-play-image-prefix "" first-frame))
+      (setq first-frame (s-replace-regexp (vlc-play--form-file-extension-regexp) "" first-frame))
+      (setq vlc-play--frame-regexp (format "%s%sd" "%0" (length first-frame)))
+      (vlc-play--update-frame))))
+
+;;; Frame
+
+(defun vlc-play--form-frame-filename ()
+  "Form the frame filename."
+  (format "%s%s.%s"
+          vlc-play-image-prefix
+          (format vlc-play--frame-regexp vlc-play--frame-index)
+          vlc-play-image-extension))
+
+(defun vlc-play--update-frame-by-image-path (path)
+  "Update the frame by image PATH."
+  (with-current-buffer vlc-play--buffer
+    (erase-buffer)
+    (insert-image-file path)))
+
+(defun vlc-play--update-frame-by-string (str)
+  "Update the frame by STR."
+  (with-current-buffer vlc-play--buffer
+    (erase-buffer)
+    (insert str)))
+
+(defun vlc-play--update-frame ()
+  "Core logic to update frame."
+  (setq vlc-play--frame-index (1+ vlc-play--frame-index))  ; increment frame
+  (let ((frame-file (concat vlc-play-images-directory (vlc-play--form-frame-filename))))
+    (if (file-exists-p frame-file)
+        (progn
+          (vlc-play--update-frame-by-image-path frame-file)
+          (vlc-play--set-buffer-timer))
+      (vlc-play--update-frame-by-string "[Done display...]"))))
+
+(defun vlc-play--set-buffer-timer ()
+  "Set the buffer timer task."
+  (vlc-play--kill-buffer-timer)
+  (setq vlc-play--buffer-timer
+        (run-with-timer vlc-play-buffer-time nil 'vlc-play--update-frame)))
+
+(defun vlc-play--kill-buffer-timer ()
+  "Kill the buffer timer."
+  (when (timerp vlc-play--buffer-timer)
+    (cancel-timer vlc-play--buffer-timer)
+    (setq vlc-play--buffer-timer nil)))
+
+
+;;; Core
+
+(defun vlc-play--reset ()
+  "Reset some variable before we play a new video."
+  (vlc-play--kill-first-frame-timer)
+  (setq vlc-play--frame-index 0)
+  (setq vlc-play--frame-regexp nil)
+  (setq vlc-play--first-frame nil))
 
 (defun vlc-play--video (path)
   "Play the video with PATH."
   (setq path (vlc-play--safe-path path))
   (if (not path)
       (user-error "[ERROR] Input video file doesn't exists: %s" path)
-    (unless (file-directory-p (expand-file-name vlc-play-images-directory))
-      (make-directory (expand-file-name vlc-play-images-directory) t))
-    (let ((converting ((shell-command (vlc-play--form-command path vlc-play-images-directory)))))
+    (vlc-play--clean-video-images)
+    (vlc-play--ensure-video-directory-exists)
+    (vlc-play--reset)
+    (let ((converting (shell-command (vlc-play--form-command path vlc-play-images-directory))))
       (if (not (= converting 0))
           (user-error "[ERROR] Failed to convert to images: %s" converting)
-        (setq vlc-play--buffer (vlc-play--create-video-buffer path))
-        (pop-to-buffer vlc-play--buffer))
+        (vlc-play--create-video-buffer path))
+      (vlc-play--set-first-frame-timer)
       )
     ))
 
-(vlc-play--video (expand-file-name "./test/3.mp4"))
+(vlc-play--reset)
+(vlc-play--set-first-frame-timer)
+;;(vlc-play--video (expand-file-name "./test/3.mp4"))
 
 
 (provide 'vlc-play)
