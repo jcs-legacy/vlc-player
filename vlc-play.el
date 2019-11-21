@@ -7,7 +7,7 @@
 ;; Description: Play video using VLC.
 ;; Keyword: video vlc buffering images
 ;; Version: 0.0.1
-;; Package-Requires: ((emacs "24.3"))
+;; Package-Requires: ((emacs "24.3") (s "1.12.0"))
 ;; URL: https://github.com/jcs090218/vlc-play
 
 ;; This file is NOT part of GNU Emacs.
@@ -32,6 +32,8 @@
 
 ;;; Code:
 
+(require 's)
+
 
 (defgroup vlc-play nil
   "Play video using VLC."
@@ -40,7 +42,9 @@
   :link '(url-link :tag "Github" "https://github.com/jcs090218/vlc-play"))
 
 
-(defcustom vlc-play-images-directory "~/.emacs.d/vlc-play/images/"
+(defcustom vlc-play-images-directory (format "%s%s"
+                                             user-emacs-directory
+                                             "vlc-play/images/")
   "Directory that stores video images."
   :type 'string
   :group 'vlc-play)
