@@ -59,18 +59,16 @@
   :type 'string
   :group 'vlc-play)
 
-(defcustom vlc-play-first-frame-time 0.2
-  "Time to check if the first frame exists."
-  :type 'float
-  :group 'vlc-play)
-
-(defcustom vlc-play-buffer-time 0.2
-  "Time to update buffer frame."
-  :type 'float
-  :group 'vlc-play)
-
 (defcustom vlc-play-image-extension "png"
   "Image extension when output from VLC."
+  :type 'string
+  :group 'vlc-play)
+
+(defcustom vlc-play-prefer-fps 30
+  "Prefer FPS that will play the video.
+Current doesn't have ideal solution for this; I will have to ask user to enter
+the FPS manually.  Todo will have to find out a way to get the FPS information
+from the input video file."
   :type 'string
   :group 'vlc-play)
 
@@ -82,9 +80,17 @@
   ""
   "Command that convert video to audio source.")
 
+(defconst vlc-play--command-kill-process
+  "vlc vlc://quit"
+  "Command that kill VLC process.")
+
 
 (defvar vlc-play--frame-regexp nil
   "Frame regular expression for matching length.")
+
+(defvar vlc-play--current-fps 0 "Current FPS that are being used.")
+(defvar vlc-play--first-frame-time 0.2 "Time to check if the first frame exists.")
+(defvar vlc-play--buffer-time 0 "Time to update buffer frame, calculate with FPS.")
 
 (defvar vlc-play--frame-index 0 "Current frame index/counter.")
 
@@ -160,7 +166,7 @@ PATH is the input video file.  SOURCE is the output image directory."
   "Set the first frame timer task."
   (vlc-play--kill-first-frame-timer)
   (setq vlc-play--first-frame-timer
-        (run-with-timer vlc-play-first-frame-time nil 'vlc-play--check-first-frame)))
+        (run-with-timer vlc-play--first-frame-time nil 'vlc-play--check-first-frame)))
 
 (defun vlc-play--kill-first-frame-timer ()
   "Kill the first frame timer.
@@ -183,9 +189,24 @@ Information about first frame timer please see variable `vlc-play--first-frame-t
       (setq first-frame (s-replace vlc-play-image-prefix "" first-frame))
       (setq first-frame (s-replace-regexp (vlc-play--form-file-extension-regexp) "" first-frame))
       (setq vlc-play--frame-regexp (format "%s%sd" "%0" (length first-frame)))
+      ;; TODO: Something goes wrong here...
+      (setq vlc-play--current-fps (read-number "Video FPS: " vlc-play-prefer-fps))
+      (setq vlc-play--buffer-time (/ 1.0 vlc-play--current-fps))
       (vlc-play--update-frame))))
 
 ;;; Frame
+
+(defun vlc-play--set-buffer-timer ()
+  "Set the buffer timer task."
+  (vlc-play--kill-buffer-timer)
+  (setq vlc-play--buffer-timer
+        (run-with-timer vlc-play--buffer-time nil 'vlc-play--update-frame)))
+
+(defun vlc-play--kill-buffer-timer ()
+  "Kill the buffer timer."
+  (when (timerp vlc-play--buffer-timer)
+    (cancel-timer vlc-play--buffer-timer)
+    (setq vlc-play--buffer-timer nil)))
 
 (defun vlc-play--form-frame-filename ()
   "Form the frame filename."
@@ -216,24 +237,13 @@ Information about first frame timer please see variable `vlc-play--first-frame-t
           (vlc-play--set-buffer-timer))
       (vlc-play--update-frame-by-string "[Done display...]"))))
 
-(defun vlc-play--set-buffer-timer ()
-  "Set the buffer timer task."
-  (vlc-play--kill-buffer-timer)
-  (setq vlc-play--buffer-timer
-        (run-with-timer vlc-play-buffer-time nil 'vlc-play--update-frame)))
-
-(defun vlc-play--kill-buffer-timer ()
-  "Kill the buffer timer."
-  (when (timerp vlc-play--buffer-timer)
-    (cancel-timer vlc-play--buffer-timer)
-    (setq vlc-play--buffer-timer nil)))
-
-
 ;;; Core
 
 (defun vlc-play--reset ()
   "Reset some variable before we play a new video."
   (vlc-play--kill-first-frame-timer)
+  (vlc-play--kill-buffer-timer)
+  (setq vlc-play--current-fps 0)
   (setq vlc-play--frame-index 0)
   (setq vlc-play--frame-regexp nil)
   (setq vlc-play--first-frame nil))
@@ -250,12 +260,13 @@ Information about first frame timer please see variable `vlc-play--first-frame-t
       (if (not (= converting 0))
           (user-error "[ERROR] Failed to convert to images: %s" converting)
         (vlc-play--create-video-buffer path))
-      (vlc-play--set-first-frame-timer)
+      (vlc-play--check-first-frame)
       )
     ))
 
+(setq vlc-play--buffer (vlc-play--create-video-buffer "test-clip"))
 (vlc-play--reset)
-(vlc-play--set-first-frame-timer)
+(vlc-play--check-first-frame)
 ;;(vlc-play--video (expand-file-name "./test/3.mp4"))
 
 
