@@ -88,9 +88,12 @@ from the input video file."
 (defvar vlc-play--frame-regexp nil
   "Frame regular expression for matching length.")
 
-(defvar vlc-play--current-fps 0 "Current FPS that are being used.")
+(defvar vlc-play--current-fps 0.0 "Current FPS that are being used.")
 (defvar vlc-play--first-frame-time 0.2 "Time to check if the first frame exists.")
-(defvar vlc-play--buffer-time 0 "Time to update buffer frame, calculate with FPS.")
+(defvar vlc-play--buffer-time 0.0 "Time to update buffer frame, calculate with FPS.")
+
+(defvar vlc-play--start-time 0.0 "Record video start time.")
+(defvar vlc-play--video-timer 0.0 "Time to record delta time.")
 
 (defvar vlc-play--frame-index 0 "Current frame index/counter.")
 
@@ -128,6 +131,10 @@ PATH is the input video file.  SOURCE is the output image directory."
                  (format "--scene-prefix=%s"  ;
                          vlc-play-image-prefix)))
           source))
+
+(defun vlc-play--kill-vlc ()
+  "Kill VLC by command."
+  (shell-command vlc-play--command-kill-process))
 
 ;;; Util
 
@@ -193,6 +200,7 @@ Information about first frame timer please see variable `vlc-play--first-frame-t
       (setq first-frame (s-replace vlc-play-image-prefix "" first-frame))
       (setq first-frame (s-replace-regexp (vlc-play--form-file-extension-regexp) "" first-frame))
       (setq vlc-play--frame-regexp (format "%s%sd" "%0" (length first-frame)))
+      (setq vlc-play--start-time (float-time))
       (vlc-play--update-frame))))
 
 ;;; Frame
@@ -236,7 +244,11 @@ Information about first frame timer please see variable `vlc-play--first-frame-t
   "Core logic to update frame."
   (if (not (vlc-play--buffer-alive-p))
       (user-error "[WARNING] Display buffer no longer alived")
-    (setq vlc-play--frame-index (1+ vlc-play--frame-index))  ; increment frame
+    ;; Calculate the time passed.
+    (setq vlc-play--video-timer (- (float-time) vlc-play--start-time))
+    ;; Calculate the frame index.
+    (setq vlc-play--frame-index (ceiling (* vlc-play--current-fps vlc-play--video-timer)))
+    (message "frame index: %s" vlc-play--frame-index)
     (let ((frame-file (concat vlc-play-images-directory (vlc-play--form-frame-filename))))
       (if (file-exists-p frame-file)
           (progn
@@ -256,7 +268,9 @@ Information about first frame timer please see variable `vlc-play--first-frame-t
   (vlc-play--kill-first-frame-timer)
   (vlc-play--kill-buffer-timer)
   (setq vlc-play--buffer nil)
-  (setq vlc-play--current-fps 0)
+  (setq vlc-play--start-time 0.0)
+  (setq vlc-play--video-timer 0.0)
+  (setq vlc-play--current-fps 0.0)
   (setq vlc-play--frame-index 0)
   (setq vlc-play--frame-regexp nil))
 
