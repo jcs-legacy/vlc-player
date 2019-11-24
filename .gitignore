@@ -2,6 +2,7 @@
 /.git
 /recipes
 /test
+/images
 vlc-play-pkg.el
 vlc-play-autoloads.el
 
