@@ -59,7 +59,7 @@
   :type 'string
   :group 'vlc-play)
 
-(defcustom vlc-play-image-extension "png"
+(defcustom vlc-play-image-extension "jpg"
   "Image extension when output from VLC."
   :type 'string
   :group 'vlc-play)
@@ -95,7 +95,6 @@ from the input video file."
 (defvar vlc-play--frame-index 0 "Current frame index/counter.")
 
 (defvar vlc-play--first-frame-timer nil "Timer that find out the first frame.")
-(defvar vlc-play--first-frame nil "Flag to check if the first frame are ready.")
 
 (defvar vlc-play--buffer nil "Buffer that displays video.")
 (defvar vlc-play--buffer-timer nil "Timer that will update the image buffer.")
@@ -121,8 +120,9 @@ PATH is the input video file.  SOURCE is the output image directory."
                  "--video-filter=scene"       ; post processing
                  ;;"-Idummy"                    ; Don't show GUI.
                  "--vout=dummy"               ; video output
-                 "--scene-format=png"         ; extension
+                 "--scene-format=jpg"         ; extension
                  "--scene-ratio=1"            ; FPS thumbnails
+                 ;;"--scene-replace"            ; Always write to the same file
                  ;;"--no-audio"                 ; no audio
                  (format "--scene-prefix=%s"  ;
                          vlc-play-image-prefix)))
@@ -157,8 +157,11 @@ PATH is the input video file.  SOURCE is the output image directory."
     (setq vlc-play--buffer buf)
     (with-current-buffer buf (buffer-disable-undo))
     (vlc-play--update-frame-by-string "[Nothing to display yet...]")
-    (pop-to-buffer buf)
     buf))
+
+(defun vlc-play--buffer-alive-p ()
+  "Check if the video buffer alive."
+  (buffer-name (get-buffer vlc-play--buffer)))
 
 ;;; First frame
 
@@ -189,9 +192,6 @@ Information about first frame timer please see variable `vlc-play--first-frame-t
       (setq first-frame (s-replace vlc-play-image-prefix "" first-frame))
       (setq first-frame (s-replace-regexp (vlc-play--form-file-extension-regexp) "" first-frame))
       (setq vlc-play--frame-regexp (format "%s%sd" "%0" (length first-frame)))
-      ;; TODO: Something goes wrong here...
-      (setq vlc-play--current-fps (read-number "Video FPS: " vlc-play-prefer-fps))
-      (setq vlc-play--buffer-time (/ 1.0 vlc-play--current-fps))
       (vlc-play--update-frame))))
 
 ;;; Frame
@@ -217,36 +217,47 @@ Information about first frame timer please see variable `vlc-play--first-frame-t
 
 (defun vlc-play--update-frame-by-image-path (path)
   "Update the frame by image PATH."
-  (with-current-buffer vlc-play--buffer
-    (erase-buffer)
-    (insert-image-file path)))
+  (if (not (vlc-play--buffer-alive-p))
+      (vlc-play--clean-up)
+    (with-current-buffer vlc-play--buffer
+      (erase-buffer)
+      (insert-image-file path))))
 
 (defun vlc-play--update-frame-by-string (str)
   "Update the frame by STR."
-  (with-current-buffer vlc-play--buffer
-    (erase-buffer)
-    (insert str)))
+  (if (not (vlc-play--buffer-alive-p))
+      (vlc-play--clean-up)
+    (with-current-buffer vlc-play--buffer
+      (erase-buffer)
+      (insert str))))
 
 (defun vlc-play--update-frame ()
   "Core logic to update frame."
-  (setq vlc-play--frame-index (1+ vlc-play--frame-index))  ; increment frame
-  (let ((frame-file (concat vlc-play-images-directory (vlc-play--form-frame-filename))))
-    (if (file-exists-p frame-file)
-        (progn
-          (vlc-play--update-frame-by-image-path frame-file)
-          (vlc-play--set-buffer-timer))
-      (vlc-play--update-frame-by-string "[Done display...]"))))
+  (if (not (vlc-play--buffer-alive-p))
+      (user-error "[WARNING] Display buffer no longer alived")
+    (setq vlc-play--frame-index (1+ vlc-play--frame-index))  ; increment frame
+    (let ((frame-file (concat vlc-play-images-directory (vlc-play--form-frame-filename))))
+      (if (file-exists-p frame-file)
+          (progn
+            (vlc-play--update-frame-by-image-path frame-file)
+            (vlc-play--set-buffer-timer))
+        (vlc-play--update-frame-by-string "[Done display...]")))))
 
 ;;; Core
 
-(defun vlc-play--reset ()
-  "Reset some variable before we play a new video."
+(defun vlc-play--ask-fps ()
+  "Ask use of FPS."
+  (setq vlc-play--current-fps (read-number "Video FPS: " vlc-play-prefer-fps))
+  (setq vlc-play--buffer-time (/ 1.0 vlc-play--current-fps)))
+
+(defun vlc-play--clean-up ()
+  "Reset/Clean up some variable before we play a new video."
   (vlc-play--kill-first-frame-timer)
   (vlc-play--kill-buffer-timer)
+  (setq vlc-play--buffer nil)
   (setq vlc-play--current-fps 0)
   (setq vlc-play--frame-index 0)
-  (setq vlc-play--frame-regexp nil)
-  (setq vlc-play--first-frame nil))
+  (setq vlc-play--frame-regexp nil))
 
 (defun vlc-play--video (path)
   "Play the video with PATH."
@@ -255,17 +266,22 @@ Information about first frame timer please see variable `vlc-play--first-frame-t
       (user-error "[ERROR] Input video file doesn't exists: %s" path)
     (vlc-play--clean-video-images)
     (vlc-play--ensure-video-directory-exists)
-    (vlc-play--reset)
+    (vlc-play--clean-up)
+    (vlc-play--ask-fps)
     (let ((converting (shell-command (vlc-play--form-command path vlc-play-images-directory))))
       (if (not (= converting 0))
           (user-error "[ERROR] Failed to convert to images: %s" converting)
-        (vlc-play--create-video-buffer path))
+        (vlc-play--create-video-buffer path)
+        (switch-to-buffer-other-window vlc-play--buffer))
       (vlc-play--check-first-frame)
       )
     ))
 
+(setq vlc-play-image-extension "jpg")
+(vlc-play--clean-up)
+(vlc-play--ask-fps)
 (setq vlc-play--buffer (vlc-play--create-video-buffer "test-clip"))
-(vlc-play--reset)
+(switch-to-buffer-other-window vlc-play--buffer)
 (vlc-play--check-first-frame)
 ;;(vlc-play--video (expand-file-name "./test/3.mp4"))
 
