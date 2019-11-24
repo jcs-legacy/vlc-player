@@ -120,7 +120,8 @@ PATH is the input video file.  SOURCE is the output image directory."
                  "--video-filter=scene"       ; post processing
                  ;;"-Idummy"                    ; Don't show GUI.
                  "--vout=dummy"               ; video output
-                 "--scene-format=jpg"         ; extension
+                 (format "--scene-format=%s"  ; extension
+                         vlc-play-image-extension)
                  "--scene-ratio=1"            ; FPS thumbnails
                  ;;"--scene-replace"            ; Always write to the same file
                  ;;"--no-audio"                 ; no audio
