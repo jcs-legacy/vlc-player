@@ -163,7 +163,7 @@ PATH is the input video file.  SOURCE is the output image directory."
   (let* ((name (vlc-player--buffer-name path))
          (buf (if (get-buffer name) (get-buffer name) (generate-new-buffer name))))
     (setq vlc-player--buffer buf)
-    (with-current-buffer buf (buffer-disable-undo))
+    (with-current-buffer buf (vlc-player-mode))
     (vlc-player--update-frame-by-string "[Nothing to display yet...]")
     buf))
 
@@ -291,6 +291,14 @@ Information about first frame timer please see variable `vlc-player--first-frame
       (vlc-player--check-first-frame)
       )
     ))
+
+
+(define-derived-mode vlc-player-mode fundamental-mode "vlc-player"
+  "Major mode for play vlc video."
+  :group 'ffmpeg-player
+  (buffer-disable-undo)
+  )
+
 
 (setq vlc-player-image-extension "jpg")
 (vlc-player--clean-up)
