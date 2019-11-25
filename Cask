@@ -1,3 +1,3 @@
 (source melpa)
 
-(package-file "vlc-play.el")
+(package-file "vlc-player.el")
