@@ -6,7 +6,7 @@
 ;; Author: Shen, Jen-Chieh <jcs090218@gmail.com>
 ;; Description: Play video using VLC.
 ;; Keyword: video vlc buffering images
-;; Version: 0.0.1
+;; Version: 0.0.8
 ;; Package-Requires: ((emacs "24.3") (s "1.12.0"))
 ;; URL: https://github.com/jcs090218/vlc-player
 
