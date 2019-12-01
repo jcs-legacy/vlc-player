@@ -1,4 +1,4 @@
-;;; vlc-player.el --- Play video using VLC.  -*- lexical-binding: t; -*-
+;;; vlc-player.el --- Play video using VLC  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2019  Shen, Jen-Chieh
 ;; Created date 2019-11-20 13:28:20
@@ -42,7 +42,7 @@
   :link '(url-link :tag "Github" "https://github.com/jcs090218/vlc-player"))
 
 
-(defcustom vlc-play-images-directory (format "%s%s"
+(defcustom vlc-player-images-directory (format "%s%s"
                                              user-emacs-directory
                                              "vlc-play/images/")
   "Directory that stores video images."
@@ -145,12 +145,12 @@ PATH is the input video file.  SOURCE is the output image directory."
 
 (defun vlc-player--clean-video-images ()
   "Clean up all video images."
-  (delete-directory (expand-file-name vlc-play-images-directory) t))
+  (delete-directory (expand-file-name vlc-player-images-directory) t))
 
 (defun vlc-player--ensure-video-directory-exists ()
   "Ensure the video directory exists so we can put our image files."
-  (unless (file-directory-p (expand-file-name vlc-play-images-directory))
-    (make-directory (expand-file-name vlc-play-images-directory) t)))
+  (unless (file-directory-p (expand-file-name vlc-player-images-directory))
+    (make-directory (expand-file-name vlc-player-images-directory) t)))
 
 ;;; Buffer
 
@@ -192,7 +192,7 @@ Information about first frame timer please see variable `vlc-player--first-frame
 
 (defun vlc-player--check-first-frame ()
   "Core function to check first frame image is ready."
-  (let ((images (directory-files (expand-file-name vlc-play-images-directory) nil (vlc-player--form-file-extension-regexp)))
+  (let ((images (directory-files (expand-file-name vlc-player-images-directory) nil (vlc-player--form-file-extension-regexp)))
         (first-frame nil))
     (if (not images)
         (vlc-player--set-first-frame-timer)
@@ -249,7 +249,7 @@ Information about first frame timer please see variable `vlc-player--first-frame
     ;; Calculate the frame index.
     (setq vlc-player--frame-index (ceiling (* vlc-player--current-fps vlc-player--video-timer)))
     (message "frame index: %s" vlc-player--frame-index)
-    (let ((frame-file (concat vlc-play-images-directory (vlc-player--form-frame-filename))))
+    (let ((frame-file (concat vlc-player-images-directory (vlc-player--form-frame-filename))))
       (if (file-exists-p frame-file)
           (progn
             (vlc-player--update-frame-by-image-path frame-file)
@@ -283,7 +283,7 @@ Information about first frame timer please see variable `vlc-player--first-frame
     (vlc-player--ensure-video-directory-exists)
     (vlc-player--clean-up)
     (vlc-player--ask-fps)
-    (let ((converting (shell-command (vlc-player--form-command path vlc-play-images-directory))))
+    (let ((converting (shell-command (vlc-player--form-command path vlc-player-images-directory))))
       (if (not (= converting 0))
           (user-error "[ERROR] Failed to convert to images: %s" converting)
         (vlc-player--create-video-buffer path)
