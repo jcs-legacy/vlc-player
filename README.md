@@ -3,7 +3,7 @@
 # vlc-player
 > Play video using VLC.
 
-[![Build Status](https://travis-ci.com/jcs090218/vlc-player.svg?branch=master)](https://travis-ci.com/jcs090218/vlc-player)
+[![CI](https://github.com/jcs-elpa/vlc-player/actions/workflows/test.yml/badge.svg)](https://github.com/jcs-elpa/vlc-player/actions/workflows/test.yml)
 
 ## Contribute
 
