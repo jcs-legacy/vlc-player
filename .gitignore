@@ -1,14 +1,16 @@
-# ignore these directories.
+# ignore these directories
 /.git
 /recipes
-/test
-/images
-vlc-player-pkg.el
-vlc-player-autoloads.el
+/_test
+/_images
 
-# ignore generated files.
+# ignore generated files
 *.elc
 
-# ignore I use to not ignore.
-Update_Log.txt
-TODO(jenchieh).txt
+# eask packages
+.eask/
+dist/
+
+# packaging
+*-autoloads.el
+*-pkg.el
