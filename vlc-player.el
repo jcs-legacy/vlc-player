@@ -4,11 +4,10 @@
 ;; Created date 2019-11-20 13:28:20
 
 ;; Author: Shen, Jen-Chieh <jcs090218@gmail.com>
-;; Description: Play video using VLC.
-;; Keyword: video vlc buffering images
+;; URL: https://github.com/jcs090218/vlc-player
 ;; Version: 0.0.8
 ;; Package-Requires: ((emacs "24.3") (s "1.12.0"))
-;; URL: https://github.com/jcs090218/vlc-player
+;; Keywords: video vlc buffering images
 
 ;; This file is NOT part of GNU Emacs.
 

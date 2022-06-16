@@ -2,6 +2,9 @@
          "0.0.8"
          "Play video using VLC")
 
+(website-url "https://github.com/jcs090218/vlc-player")
+(keywords "video" "vlc" "buffering" "images")
+
 (package-file "vlc-player.el")
 
 (source "melpa")
