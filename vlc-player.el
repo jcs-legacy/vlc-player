@@ -7,7 +7,7 @@
 ;; URL: https://github.com/jcs090218/vlc-player
 ;; Version: 0.0.8
 ;; Package-Requires: ((emacs "24.3") (s "1.12.0"))
-;; Keywords: video vlc buffering images
+;; Keywords: multimedia video vlc buffering images
 
 ;; This file is NOT part of GNU Emacs.
 
