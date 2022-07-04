@@ -3,7 +3,7 @@
          "Play video using VLC")
 
 (website-url "https://github.com/jcs090218/vlc-player")
-(keywords "video" "vlc" "buffering" "images")
+(keywords "multimedia" "video" "vlc" "buffering" "images")
 
 (package-file "vlc-player.el")
 
