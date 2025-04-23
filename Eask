@@ -1,3 +1,5 @@
+;; -*- mode: eask; lexical-binding: t -*-
+
 (package "vlc-player"
          "0.0.8"
          "Play video using VLC")
